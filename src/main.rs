@@ -11,12 +11,28 @@ use ray::Ray;
 use hittable::{Hittable, Hit, Sphere, World};
 use camera::Camera;
 
+fn random_in_unit_sphere() -> Vec3 {
+    let mut rng = thread_rng();
+    let mut vec: Vec3 = 2.0 * Vec3::new(rng.gen(), rng.gen(), rng.gen());
+
+    loop {
+        if vec.squared_length() >= 1.0 {
+            return vec
+        }
+
+        vec.e[0] = rng.gen();
+        vec.e[1] = rng.gen();
+        vec.e[2] = rng.gen();
+    }
+}
+
 fn color(r: &Ray, world: &World) -> Vec3 {
-    let hit: Option<Hit> = world.hit(r, 0.0, std::f32::MAX);
+    let hit: Option<Hit> = world.hit(r, 0.001, std::f32::MAX);
 
     match hit {
         Some(h) => {
-            0.5 * Vec3::new(h.normal.x() + 1.0, h.normal.y() + 1.0, h.normal.z() + 1.0)
+            let target: Vec3 = h.p + h.normal + random_in_unit_sphere();
+            0.5 * color(&Ray::new(h.p, target - h.p), world)
         },
         None => {
             let unit_direction: Vec3 = Vec3::unit_vector(r.direction());
@@ -31,7 +47,7 @@ fn main() {
     const NY: i32 = 200;
     const NS: i32 = 100;
 
-    let mut rng = rand::thread_rng();
+    let mut rng = thread_rng();
 
     let world: World = World {
         objects: vec![
@@ -61,6 +77,11 @@ fn main() {
             }
 
             col /= NS as f32;
+
+            // Adjust gamma
+            col.e[0] = col.e[0].sqrt();
+            col.e[1] = col.e[1].sqrt();
+            col.e[2] = col.e[2].sqrt();
 
             let ir: i32 = (255.99 * col.r()) as i32;
             let ig: i32 = (255.99 * col.g()) as i32;

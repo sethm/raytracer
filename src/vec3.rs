@@ -3,7 +3,7 @@ use std::ops;
 
 #[derive(Copy, Clone)]
 pub struct Vec3 {
-    e: [f32;3]
+    pub e: [f32;3]
 }
 
 impl Vec3 {
