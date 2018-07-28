@@ -4,3 +4,4 @@ version = "0.1.0"
 authors = ["Seth Morabito <web@loomcom.com>"]
 
 [dependencies]
+rand = "^0.5"
