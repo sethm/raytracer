@@ -19,6 +19,10 @@ impl Vec3 {
         v1.x() * v2.x() + v1.y() * v2.y() + v1.z() * v2.z()
     }
 
+    pub fn reflect(v: &Vec3, n: &Vec3) -> Vec3 {
+        *v - 2.0 * Vec3::dot(v, n) * n
+    }
+
     // Accessors for xyz / rgb
     pub fn x(&self) -> f32 {
         self.e[0]
@@ -60,12 +64,13 @@ impl Vec3 {
         self.e[0] * self.e[0] + self.e[1] * self.e[1] + self.e[2] * self.e[2]
     }
 
-   pub fn make_unit_vector(&mut self)  {
+    pub fn make_unit_vector(&mut self)  {
         let k: f32 = 1.0 / self.length();
         self.e[0] *= k;
         self.e[1] *= k;
         self.e[2] *= k;
     }
+
 }
 
 impl fmt::Debug for Vec3 {
@@ -170,6 +175,16 @@ impl ops::Mul<Vec3> for f32 {
     type Output = Vec3;
 
     fn mul(self, v: Vec3) -> Vec3 {
+        Vec3::new(self * v.x(),
+                  self * v.y(),
+                  self * v.z())
+    }
+}
+
+impl<'a> ops::Mul<&'a Vec3> for f32 {
+    type Output = Vec3;
+
+    fn mul(self, v: &Vec3) -> Vec3 {
         Vec3::new(self * v.x(),
                   self * v.y(),
                   self * v.z())

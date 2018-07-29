@@ -8,31 +8,21 @@ extern crate rand;
 use rand::prelude::*;
 use vec3::Vec3;
 use ray::Ray;
-use hittable::{Hittable, Hit, Sphere, World};
+use hittable::*;
 use camera::Camera;
 
-fn random_in_unit_sphere() -> Vec3 {
-    let mut rng = thread_rng();
-    let mut vec: Vec3 = 2.0 * Vec3::new(rng.gen(), rng.gen(), rng.gen());
-
-    loop {
-        if vec.squared_length() >= 1.0 {
-            return vec
-        }
-
-        vec.e[0] = rng.gen();
-        vec.e[1] = rng.gen();
-        vec.e[2] = rng.gen();
-    }
-}
-
-fn color(r: &Ray, world: &World) -> Vec3 {
+fn color(r: &Ray, world: &World, depth: i32) -> Vec3 {
     let hit: Option<Hit> = world.hit(r, 0.001, std::f32::MAX);
 
     match hit {
         Some(h) => {
-            let target: Vec3 = h.p + h.normal + random_in_unit_sphere();
-            0.5 * color(&Ray::new(h.p, target - h.p), world)
+            let reflection: Reflection = h.object.material().scatter(r, &h);
+
+            if depth < 50 && reflection.reflected {
+                reflection.attenuation * color(&reflection.scattered, world, depth + 1)
+            } else {
+                Vec3::new(0.0, 0.0, 0.0)
+            }
         },
         None => {
             let unit_direction: Vec3 = Vec3::unit_vector(r.direction());
@@ -43,17 +33,27 @@ fn color(r: &Ray, world: &World) -> Vec3 {
 }
 
 fn main() {
-    const NX: i32 = 400;
-    const NY: i32 = 200;
+    const NX: i32 = 1600;
+    const NY: i32 = 800;
     const NS: i32 = 100;
 
     let mut rng = thread_rng();
 
     let world: World = World {
         objects: vec![
-            Box::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5)),
-            Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)),
-        ]
+            Box::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0),
+                                 0.5,
+                                 Box::new(Lambertian::new(Vec3::new(0.8, 0.3, 0.3))))),
+            Box::new(Sphere::new(Vec3::new(1.0, 0.0, -1.0),
+                                 0.3,
+                                 Box::new(Metal::new(Vec3::new(0.9, 0.9, 0.9))))),
+            Box::new(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),
+                                 0.3,
+                                 Box::new(Metal::new(Vec3::new(0.9, 0.9, 0.9))))),
+            Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0),
+                                 100.0,
+                                 Box::new(Lambertian::new(Vec3::new(0.3, 0.3, 0.3))))),
+        ],
     };
 
     let camera: Camera = Camera::default();
@@ -73,7 +73,7 @@ fn main() {
                 let u: f32 = (i as f32 + ir) / NX as f32;
                 let v: f32 = (j as f32 + jr) / NY as f32;
                 let r: Ray = camera.get_ray(u, v);
-                col += color(&r, &world);
+                col += color(&r, &world, 0);
             }
 
             col /= NS as f32;
