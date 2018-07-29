@@ -82,7 +82,6 @@ fn main() {
     // Print the data
     for j in (0..=(NY-1)).rev() {
         for i in 0..NX {
-
             let mut col: Vec3 = Vec3::new(0.0, 0.0, 0.0);
 
             for _ in 0..NS {
