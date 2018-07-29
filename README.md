@@ -1,7 +1,7 @@
 # Ray Tracing in Rust
 
 This is a ray tracer built in Rust by reading through Peter Shirley's
-book "Ray Tracing in One Weekend".
+book ["Ray Tracing in One Weekend"](https://www.amazon.com/Ray-Tracing-Weekend-Minibooks-Book-ebook/dp/B01B5AODD8)
 
 It was, in fact, built in one weekend.
 
