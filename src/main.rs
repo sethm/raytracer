@@ -80,15 +80,21 @@ fn main() {
 
     let world: World = World {
         objects: vec![
+            // Middle sphere
             Box::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0),
                                  0.5,
                                  Box::new(Lambertian::new(Vec3::new(0.8, 0.3, 0.3))))),
+            // Right sphere
             Box::new(Sphere::new(Vec3::new(1.5, 0.2, -1.5),
                                  0.7,
                                  Box::new(Metal::new(Vec3::new(0.6, 0.6, 0.9))))),
+
+            // Left sphere
             Box::new(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),
                                  0.3,
                                  Box::new(Metal::new(Vec3::new(0.9, 0.9, 0.9))))),
+
+            // Giant "ground" sphere
             Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0),
                                  100.0,
                                  Box::new(Lambertian::new(Vec3::new(0.3, 0.3, 0.3))))),

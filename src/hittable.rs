@@ -48,7 +48,6 @@ pub trait Material {
     fn albedo(&self) -> Vec3;
 }
 
-
 // Lambertian (diffuse) Material
 pub struct Lambertian {
     albedo: Vec3,
@@ -128,12 +127,6 @@ pub struct World {
     pub objects: Vec<Box<Hittable>>,
 }
 
-impl World {
-    pub fn new() -> World {
-        World { objects: Vec::new() }
-    }
-}
-
 impl Sphere {
     pub fn new(center: Vec3, radius: f32, material: Box<Material>) -> Sphere {
         Sphere { center, radius, material }
@@ -164,18 +157,35 @@ impl Hittable for Sphere {
     }
 }
 
+
+///
+/// A World is a collection of hittable objects, and the main
+/// entry point for ray tracing.
+///
+
+impl World {
+    pub fn new() -> World {
+        World { objects: Vec::new() }
+    }
+}
+
 impl World {
     pub fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<Hit> {
-        let closest_so_far: f32 = t_max;
+        let mut hits: Vec<Hit> = Vec::new();
+        let mut closest_so_far: f32 = t_max;
 
         for object in &self.objects {
             let hit: Option<Hit> = object.hit(r, t_min, closest_so_far);
 
-            if hit.is_some() {
-                return hit;
+            match hit {
+                Some(h) => {
+                    closest_so_far = h.t;
+                    hits.push(h);
+                },
+                None => {}
             }
         }
 
-        None
+        hits.pop()
     }
 }
