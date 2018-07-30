@@ -20,6 +20,7 @@ use rand::prelude::*;
 use vec3::Vec3;
 use ray::Ray;
 use std::vec::Vec;
+use std::i32;
 
 fn random_in_unit_sphere() -> Vec3 {
     let mut rng = thread_rng();
@@ -58,6 +59,11 @@ pub struct Metal {
     albedo: Vec3,
 }
 
+// Dialectric Material
+pub struct Dialectric {
+    ref_idx: f32,
+}
+
 impl Lambertian {
     pub fn new(albedo: Vec3) -> Lambertian {
         Lambertian { albedo }
@@ -67,6 +73,12 @@ impl Lambertian {
 impl Metal {
     pub fn new(albedo: Vec3) -> Metal {
         Metal { albedo }
+    }
+}
+
+impl Dialectric {
+    pub fn new(ref_idx: f32) -> Dialectric {
+        Dialectric { ref_idx }
     }
 }
 
@@ -88,7 +100,7 @@ impl Material for Lambertian {
 
 impl Material for Metal {
     fn scatter(&self, r_in: &Ray, hit: &Hit) -> Reflection {
-        let reflected: Vec3 = Vec3::reflect(&Vec3::unit_vector(r_in.direction()), &hit.normal);
+        let reflected: Vec3 = Vec3::reflect(&Vec3::unit_vector(&r_in.direction()), &hit.normal);
         let scattered: Ray = Ray::new(hit.p, reflected);
         let direction: Vec3 = scattered.direction();
 
@@ -101,6 +113,91 @@ impl Material for Metal {
 
     fn albedo(&self) -> Vec3 {
         self.albedo
+    }
+}
+
+struct Refraction {
+    refracted: Vec3
+}
+
+fn refract(v: &Vec3, n: &Vec3, ni_over_nt: f32) -> Option<Refraction> {
+    let uv: Vec3 = Vec3::unit_vector(v);
+    let dt: f32 = Vec3::dot(&uv, n);
+    let discriminant: f32 = 1.0 - ni_over_nt*ni_over_nt*(1.0 - dt*dt);
+    if discriminant > 0.0 {
+        Some(Refraction {
+            refracted: ni_over_nt*(uv - dt*n) - discriminant.sqrt()*n
+        })
+    } else {
+        None
+    }
+}
+
+fn schlick(cosine: f32, ref_idx: f32) -> f32 {
+    let mut r0: f32 = (1.0-ref_idx) / (1.0+ref_idx);
+    r0 *= r0;
+    r0 + (1.0-r0) * (((1.0 - cosine) as i32).pow(5)) as f32
+}
+
+
+impl Material for Dialectric {
+    fn scatter(&self, r_in: &Ray, hit: &Hit) -> Reflection {
+        let reflected: Vec3 = Vec3::reflect(&r_in.direction(), &hit.normal);
+        let dot_positive: bool = Vec3::dot(&r_in.direction(), &hit.normal) > 0.0;
+
+        let outward_normal: Vec3 = if dot_positive {
+            -hit.normal
+        } else {
+            hit.normal
+        };
+
+        let ni_over_nt: f32 = if dot_positive {
+            self.ref_idx
+        } else {
+            1.0 / self.ref_idx
+        };
+
+        let cosine: f32 = if dot_positive {
+            self.ref_idx * Vec3::dot(&r_in.direction(), &hit.normal) / r_in.direction().length()
+        } else {
+            -Vec3::dot(&r_in.direction(), &hit.normal) / r_in.direction().length()
+        };
+
+        let refraction: Option<Refraction> = refract(&r_in.direction(), &outward_normal, ni_over_nt);
+
+        let reflect_prob: f32 = match refraction {
+            Some(_) => {
+                schlick(cosine, self.ref_idx)
+            },
+            None => {
+                1.0
+            }
+        };
+
+        let refracted = match refraction {
+            Some(r) => {
+                r.refracted
+            },
+            None => {
+                Vec3::new(0.0, 0.0, 0.0)
+            }
+        };
+
+        let scattered: Ray = if random::<f32>() < reflect_prob {
+            Ray::new(hit.p, reflected)
+        } else {
+            Ray::new(hit.p, refracted)
+        };
+
+        Reflection {
+            scattered: scattered,
+            attenuation: Vec3::new(1.0, 1.0, 1.0),
+            reflected: true,
+        }
+    }
+
+    fn albedo(&self) -> Vec3 {
+        Vec3::new(1.0, 1.0, 1.0)
     }
 }
 

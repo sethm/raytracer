@@ -18,6 +18,7 @@
 
 use ray::Ray;
 use vec3::Vec3;
+use std::f32::consts;
 
 pub struct Camera {
     pub lower_left_corner: Vec3,
@@ -27,6 +28,23 @@ pub struct Camera {
 }
 
 impl Camera {
+    pub fn new(lookfrom: Vec3, lookat: Vec3, vup: Vec3, vfov: f32, aspect: f32) -> Camera {
+        let theta: f32 = vfov * consts::PI / 180.0;
+        let half_height: f32 = (theta / 2.0).tan();
+        let half_width: f32 = aspect * half_height;
+
+        let w: Vec3 = Vec3::unit_vector(&(lookfrom - lookat));
+        let u: Vec3 = Vec3::unit_vector(&Vec3::cross(&vup, &w));
+        let v: Vec3 = Vec3::cross(&w, &u);
+
+        Camera {
+            lower_left_corner: lookfrom - half_width*u - half_height*v - w,
+            horizontal: 2.0 * half_width * u,
+            vertical: 2.0 * half_height * v,
+            origin: lookfrom,
+        }
+    }
+
     pub fn default() -> Camera {
         Camera {
             lower_left_corner: Vec3::new(-2.0, -1.0, -1.0),

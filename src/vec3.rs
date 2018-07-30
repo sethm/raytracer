@@ -29,7 +29,7 @@ impl Vec3 {
         Vec3 { e: [e0, e1, e2] }
     }
 
-    pub fn unit_vector(v: Vec3) -> Vec3 {
+    pub fn unit_vector(v: &Vec3) -> Vec3 {
         return v / v.length()
     }
 
@@ -39,6 +39,14 @@ impl Vec3 {
 
     pub fn reflect(v: &Vec3, n: &Vec3) -> Vec3 {
         *v - 2.0 * Vec3::dot(v, n) * n
+    }
+
+    pub fn cross(v1: &Vec3, v2: &Vec3) -> Vec3 {
+        Vec3::new(
+            v1.e[1] * v2.e[2] - v1.e[2] * v2.e[1],
+            -(v1.e[0] * v2.e[2] - v1.e[2] * v2.e[0]),
+            v1.e[0] * v2.e[1] - v1.e[1] * v2.e[0]
+        )
     }
 
     // Accessors for xyz / rgb
@@ -64,14 +72,6 @@ impl Vec3 {
 
     pub fn b(&self) -> f32 {
         self.e[2]
-    }
-
-    pub fn cross(&self, v: &Vec3) -> Vec3 {
-        Vec3::new(
-            self.e[1] * v.e[2] - self.e[2] * v.e[1],
-            -(self.e[0] * v.e[2] - self.e[2] * v.e[0]),
-            self.e[0] * v.e[1] - self.e[1] * v.e[0]
-        )
     }
 
     pub fn length(&self) -> f32 {
@@ -139,10 +139,29 @@ impl<'a> ops::Sub<&'a Vec3> for Vec3 {
     }
 }
 
+impl ops::Neg for Vec3 {
+    type Output = Vec3;
+
+    fn neg(self) -> Vec3 {
+        Vec3::new(-self.x(), -self.y(), -self.z())
+    }
+}
+
 impl ops::Mul for Vec3 {
     type Output = Vec3;
 
     fn mul(self, rhs: Vec3) -> Vec3 {
+        Vec3::new(self.x() * rhs.x(),
+                  self.y() * rhs.y(),
+                  self.z() * rhs.z())
+    }
+}
+
+impl<'a> ops::Mul<&'a Vec3> for Vec3 {
+    type Output = Vec3;
+
+
+    fn mul(self, rhs: &Vec3) -> Vec3 {
         Vec3::new(self.x() * rhs.x(),
                   self.y() * rhs.y(),
                   self.z() * rhs.z())
