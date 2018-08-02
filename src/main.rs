@@ -24,7 +24,10 @@ pub mod ray;
 pub mod hittable;
 pub mod camera;
 
-use std::{thread, time};
+use std::thread;
+
+use std::time;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rand::prelude::*;
 use vec3::Vec3;
@@ -36,10 +39,13 @@ use sdl2::rect::Rect;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use std::sync::Arc;
+use std::sync::mpsc::channel;
 
 const NX: u32 = 800;
 const NY: u32 = 800;
 const NS: u32 = 100;
+const NUM_THREADS: u32 = 10;
 
 fn color(r: &Ray, world: &World, depth: i32) -> Vec3 {
     let hit: Option<Hit> = world.hit(r, 0.001, std::f32::MAX);
@@ -62,7 +68,64 @@ fn color(r: &Ray, world: &World, depth: i32) -> Vec3 {
     }
 }
 
+#[derive(Debug)]
+struct RenderResult {
+    offset: usize,
+    data: Vec<u8>
+}
+
+fn render_line(line: u32, world: &Arc<World>, camera: &Arc<Camera>, pitch: usize) -> RenderResult {
+    let mut data: Vec<u8> = Vec::new();
+    let offset = (NY - 1 - line) as usize * pitch;
+    let y = line as usize;
+    let mut rng = thread_rng();
+
+    for i in 0..NX {
+        let x = i as usize;
+
+        let mut col: Vec3 = Vec3::new(0.0, 0.0, 0.0);
+
+        for _ in 0..NS {
+            let ir: f32 = rng.gen();
+            let jr: f32 = rng.gen();
+            let u: f32 = (x as f32 + ir) / NX as f32;
+            let v: f32 = (y as f32 + jr) / NY as f32;
+
+            let r: Ray = camera.get_ray(u, v);
+            col += color(&r, &world, 0);
+        }
+
+        col /= NS as f32;
+
+        // Adjust gamma
+        col.e[0] = col.e[0].sqrt();
+        col.e[1] = col.e[1].sqrt();
+        col.e[2] = col.e[2].sqrt();
+
+        let ir: u8 = (255.99 * col.r()) as u8;
+        let ig: u8 = (255.99 * col.g()) as u8;
+        let ib: u8 = (255.99 * col.b()) as u8;
+
+        data.push(ir);
+        data.push(ig);
+        data.push(ib);
+    }
+
+    RenderResult {
+        offset,
+        data
+    }
+}
+
+fn now() -> u64 {
+    let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    t.as_secs() * 1000 + t.subsec_nanos() as u64 / 1_000_000
+}
+
 fn main() {
+    let start_time = now();
+    let mut time_displayed = false;
+
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem.window("Rust Raytracer", NX, NY)
@@ -73,9 +136,7 @@ fn main() {
 
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator.create_texture_streaming(
-        PixelFormatEnum::RGB24, NX, NY + 1).unwrap();
-
-    let mut rng = thread_rng();
+        PixelFormatEnum::RGB24, NX, NY).unwrap();
 
     let world: World = World {
         objects: vec![
@@ -111,45 +172,37 @@ fn main() {
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let mut j = NY + 1;
+    let mut j = NY;
+    let pitch = NX as usize * PixelFormatEnum::RGB24.byte_size_per_pixel();
+
+    let shared_world = Arc::new(world);
+    let shared_camera = Arc::new(camera);
+    let (tx, rx) = channel();
+
+    for thread_num in 0..NUM_THREADS {
+        let sw = shared_world.clone();
+        let sc = shared_camera.clone();
+        let tx = tx.clone();
+        let lines_per_block = NY / NUM_THREADS;
+        let start_line = thread_num * lines_per_block;
+        let end_line = (thread_num + 1) * lines_per_block;
+        thread::spawn(move || {
+            for line in start_line..end_line {
+                let result = render_line(line, &sw, &sc, pitch);
+                tx.send(result).unwrap();
+            }
+        });
+    }
 
     'running: loop {
-        // Do one row
         if j > 0 {
             j -= 1;
-            texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
-                for i in 0..NX {
+            let result = rx.recv().unwrap();
+            let slice = result.data.as_slice();
 
-                    let x = i as usize;
-                    let y = j as usize;
-
-                    let mut col: Vec3 = Vec3::new(0.0, 0.0, 0.0);
-
-                    for _ in 0..NS {
-                        let ir: f32 = rng.gen();
-                        let jr: f32 = rng.gen();
-                        let u: f32 = (x as f32 + ir) / NX as f32;
-                        let v: f32 = (y as f32 + jr) / NY as f32;
-                        let r: Ray = camera.get_ray(u, v);
-                        col += color(&r, &world, 0);
-                    }
-
-                    col /= NS as f32;
-
-                    // Adjust gamma
-                    col.e[0] = col.e[0].sqrt();
-                    col.e[1] = col.e[1].sqrt();
-                    col.e[2] = col.e[2].sqrt();
-
-                    let ir: u8 = (255.99 * col.r()) as u8;
-                    let ig: u8 = (255.99 * col.g()) as u8;
-                    let ib: u8 = (255.99 * col.b()) as u8;
-
-                    let offset = (NY as usize - y)*pitch + x*3;
-
-                    buffer[offset] = ir;
-                    buffer[offset + 1] = ig;
-                    buffer[offset + 2] = ib;
+            texture.with_lock(None, |buffer: &mut [u8], _: usize| {
+                for n in 0..slice.len() {
+                    buffer[result.offset + n] = slice[n];
                 }
             }).unwrap();
 
@@ -168,6 +221,10 @@ fn main() {
         }
 
         if j == 0 {
+            if !time_displayed {
+                println!("Rendering with {} threads took: {} ms", NUM_THREADS, now() - start_time);
+                time_displayed = true;
+            }
             thread::sleep(time::Duration::from_millis(10));
         }
     }

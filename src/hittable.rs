@@ -211,21 +211,21 @@ pub struct Hit<'a> {
 
 pub trait Hittable {
     fn hit(&self, r: &Ray, t_min: f32, t_max: f32) -> Option<Hit>;
-    fn material(&self) -> &Box<Material>;
+    fn material(&self) -> &Box<Material+Sync+Send>;
 }
 
 pub struct Sphere {
     pub center: Vec3,
     pub radius: f32,
-    pub material: Box<Material>,
+    pub material: Box<Material+Sync+Send>,
 }
 
 pub struct World {
-    pub objects: Vec<Box<Hittable>>,
+    pub objects: Vec<Box<Hittable+Sync+Send>>,
 }
 
 impl Sphere {
-    pub fn new(center: Vec3, radius: f32, material: Box<Material>) -> Sphere {
+    pub fn new(center: Vec3, radius: f32, material: Box<Material+Sync+Send>) -> Sphere {
         Sphere { center, radius, material }
     }
 }
@@ -249,7 +249,7 @@ impl Hittable for Sphere {
         None
     }
 
-    fn material(&self) -> &Box<Material> {
+    fn material(&self) -> &Box<Material+Sync+Send> {
         &self.material
     }
 }
