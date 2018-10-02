@@ -42,10 +42,10 @@ use sdl2::keyboard::Keycode;
 use std::sync::Arc;
 use std::sync::mpsc::channel;
 
-const NX: u32 = 800;
-const NY: u32 = 800;
+const NX: u32 = 640;
+const NY: u32 = 480;
 const NS: u32 = 100;
-const NUM_THREADS: u32 = 10;
+const NUM_THREADS: u32 = 6;
 
 fn color(r: &Ray, world: &World, depth: i32) -> Vec3 {
     let hit: Option<Hit> = world.hit(r, 0.001, std::f32::MAX);
